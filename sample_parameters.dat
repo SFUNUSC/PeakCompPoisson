@@ -1,55 +1,68 @@
-EXPERIMENT_DATA             expt/sum_2548and3088gate.mca
-ADD_BACKGROUND              yes
+EXPERIMENT_DATA             ../na25_expt/thick_1042gate_5keVch.mca
+ADD_BACKGROUND              const
+FORCE_POSITIVE_AMPLITUDE    yes
+USE_RELATIVE_INTENSITIES    yes
 PLOT_OUTPUT                 no
 VERBOSE                     no
-SAVE_STATS		    					no
-STATS_DATA_NAME		    			stats_TigressGroup.dat
 
-SIMULATED_DATA              mca/18_4.1_15.mca
+SIMULATED_DATA              ../4969/10/sim_5keVch_biased.mca
+SIMULATED_DATA              ../4969_6739feeding/10/sim_5keVch_biased.mca 0.158906936183264 0.214985815679432
+SIMULATED_DATA              ../4969_7621feeding/10/sim_5keVch_biased.mca 0.121194526670479	0.224866235588867
 
-SPECTRUM  START_CHANNEL END_CHANNEL STEP_C STEP_W
-1	  2880	        3173	    3026.0 80.0
-2	  2845	        3145	    2995.0 60.0
-3	  2732	        3158	    2945.0 40.0
-4	  2707	        3165	    2936.0 60.0
-5	  2682	        3158	    2920.0 80.0
-6	  2665	        3116	    2890.0 80.0
+SPECTRUM  START_CHANNEL END_CHANNEL
+1	  305	        315
+2	  302	        318
+3	  295	        315
+4	  285	        315
+5	  285	        300	
+6	  285	        300
 
 <---END_OF_PARAMETERS--->
 
 
-This is a parameter file for the peak comparison code.  The code will analyze and compare data in the two specified .mca files, in the specified range of spectra and channels.  If you change the format of the file, prepare for unforeseen consequences.
+This is a parameter file for the peak comparison code.  
+The code will analyze and compare data in the two specified .mca files, 
+in the specified range of spectra and channels.  If you change the 
+format of the file, prepare for unforeseen consequences.
 
-Parameters and their descriptions follow:
+Valid parameters and their descriptions follow:
 
 EXPERIMENT_DATA
-Contains the path to the .mca file containing experiment data.
+Contains the path to the .mca or .fmca file containing experiment data.
 
 ADD_BACKGROUND
 no: Don't add any background.
-step: Add a constant+step function (with centroid STEP_C and width sqrt(2)*STEP_W) background to the simulated data.
-lin: Add a linear background to the simulated data.
 const: Add a constant background to the simulated data.
+lin: Add a linear background to the simulated data.
+quad: Add a quadratic background to the simulated data.
+
+FORCE_NEGATIVE_SLOPE_BACKGROUND
+yes: Force the background term to decrease (or stay constant) with increasing energy.
+no: Leave background parameters free.
 
 PLOT_OUTPUT
 no: Show chisq stats only.
 yes: Show a plot of the simulated and experimental data alongside chisq stats.
 detailed: Same as 'yes', except plot all simulated datasets and background as well.
+detailed_nobg: Same as 'detailed', except don't show background.
 
 VERBOSE
-no: only print the fit chisq value (useful for interfacing with bash scripts)
-yes: print the results of reading in the parameter file and fitting
-debug: print the above plus debug info
+no: Only print the fit chisq value (useful for interfacing with bash scripts).
+yes: Print the results of reading in the parameter file and fitting.
+debug: Print the above plus debug info.
 
-SAVE_STATS
-no: do not save stats.
-yes: save chi-square and Bhattacharyya statistical analysis to a file.
-
-STATS_DATA_NAME
-Path to .dat file containing the stats information. Column 1 is spectrum #, column 2 is chi-square, column 3 is Bhattacharyya.
+SAVE_RESULTS
+no: Do not save fit results.
+yes: Save fit results to a file (fit_poisson.fmca) alongside scaling factors (scalingFactors.dat).
 
 SIMULATED_DATA
-Contains the path(s) to the .mca file(s) containing simulated data.  Multiple datasets may be specified, each on a separate line.
+Contains the path(s) to the .mca or .fmca file(s) containing simulated data.
+Multiple datasets may be specified, each on a separate line.
+Two numbers can be specified after the filename, corresponding 
+to low and high limits for the relative intensity of that data,
+relative to any other datasets specified.  Note: Intensity limits are 
+only valid for the second and later files, the first file will be assumed
+to have relative intensity 1.
 
 SPECTRUM  START_CHANNEL END_CHANNEL
 Contains a list of the spectra to analyze in the experiment and simulated data, along with the channel range to analyze.  Multiple spectra may be specified, each on a separate line.

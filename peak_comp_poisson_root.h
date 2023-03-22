@@ -17,10 +17,10 @@
 #include "Math/Factory.h"
 #include "Math/Functor.h"
 
-#define S32K        32768
+#define S32K        32768 //2^15
 #define NPAR        20
-#define NSPECT      10
-#define NSIMDATA    10
+#define NSPECT      32
+#define NSIMDATA    16
 
 //forward declarations
 void   find_chisqMin(); // ROOT minimization class
