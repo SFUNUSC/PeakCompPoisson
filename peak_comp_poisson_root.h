@@ -23,7 +23,7 @@
 #define NSIMDATA    16
 
 //forward declarations
-void   find_chisqMin(); // ROOT minimization class
+double find_chisqMin(); // ROOT minimization class
 void   plotSpectra();   // ROOT canvas
 int    readMCA(FILE* inp,char* filename,float inpHist[NSPECT][S32K]);
 int    readFMCA(FILE* inp,char* filename,float inpHist[NSPECT][S32K]);
@@ -31,7 +31,6 @@ int    readFMCA(FILE* inp,char* filename,float inpHist[NSPECT][S32K]);
 //global variables
 float  expHist[NSPECT][S32K];
 float  simHist[NSIMDATA][NSPECT][S32K];
-double chisq;
 double scaledSimHist[NSIMDATA][NSPECT][S32K];
 double bgHist[NSPECT][S32K];
 float  resultsHist[NSPECT][S32K];

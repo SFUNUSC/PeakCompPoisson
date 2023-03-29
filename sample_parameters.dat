@@ -1,4 +1,5 @@
 EXPERIMENT_DATA             ../na25_expt/thick_1042gate_5keVch.mca
+REBIN_FACTOR                1
 ADD_BACKGROUND              const
 FORCE_POSITIVE_AMPLITUDE    yes
 USE_RELATIVE_INTENSITIES    yes
@@ -29,6 +30,9 @@ Valid parameters and their descriptions follow:
 
 EXPERIMENT_DATA
 Contains the path to the .mca or .fmca file containing experiment data.
+
+REBIN_FACTOR
+An integer value between 1 and 100, specifying a factor to rebin the imported spectra by (default 1).
 
 ADD_BACKGROUND
 no: Don't add any background.
@@ -65,4 +69,6 @@ only valid for the second and later files, the first file will be assumed
 to have relative intensity 1.
 
 SPECTRUM  START_CHANNEL END_CHANNEL
-Contains a list of the spectra to analyze in the experiment and simulated data, along with the channel range to analyze.  Multiple spectra may be specified, each on a separate line.
+Contains a list of the spectra to analyze in the experiment and simulated data, 
+along with the channel range to analyze.  Multiple spectra may be specified, 
+each on a separate line.  Channel numbers are specified assuming a rebin factor of 1.

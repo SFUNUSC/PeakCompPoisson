@@ -3,9 +3,7 @@
 
 int main(int argc, char *argv[]){
 
-  int i = 0;
-  int j = 0;
-  int k = 0;
+  int i,j,k,m;
   FILE *expData, *simData, *results, *scalingFactors;
 
   if(argc != 2){
@@ -32,8 +30,6 @@ int main(int argc, char *argv[]){
       aFinal[i][j] = 0.;
     }
   }
-
-  chisq = 0.;
 
   // initialize ROOT stuff
   char simName[132];
@@ -79,7 +75,9 @@ int main(int argc, char *argv[]){
 
   for(i = 0; i < NSPECT; i++){
     for(j = 0; j < S32K; j++){
-      data[i]->Fill(j, expHist[i][j]);
+      for(m=0;m<rebinFactor;m++){
+        data[i]->Fill(j*rebinFactor + m, expHist[i][j]);
+      }
     }
   }
   
@@ -101,6 +99,12 @@ int main(int argc, char *argv[]){
     fclose(simData);
   }
 
+  //set limits, taking re-binning into account
+  for(i = 0; i < numSpectra; i++){
+    fitStartCh[i] = startCh[i]/rebinFactor;
+    fitEndCh[i] = endCh[i]/rebinFactor;
+  }
+
   /*for(i = 0; i < numSpectra; i++)
     for(j = 0; j < S32K; j++)
       for(k=0;k<numSimData;k++){
@@ -116,14 +120,17 @@ int main(int argc, char *argv[]){
     printf("Spectra read in...\n");
   }
   
-  find_chisqMin();
+  // do the fit
+  double chisq = find_chisqMin();
 
   // scale simulated data
   for(i = 0; i < numSpectra; i++){
     for(j = 0; j < S32K; j++){
-      for(k=0;k<numSimData;k++){
-        scaledSimHist[k][spectrum[i]][j]=0.;
-        scaledSimHist[k][spectrum[i]][j] += aFinal[k+3][i] * simHist[k][spectrum[i]][j];
+      for(m=0;m<rebinFactor;m++){
+        for(k=0;k<numSimData;k++){
+          scaledSimHist[k][spectrum[i]][j*rebinFactor + m]=0.;
+          scaledSimHist[k][spectrum[i]][j*rebinFactor + m] += aFinal[k+3][i] * simHist[k][spectrum[i]][j];
+        }
       }
     }
   }
@@ -131,14 +138,16 @@ int main(int argc, char *argv[]){
   // add background to simulated data
   for(i = 0; i < numSpectra; i++){
     for(j = 0; j < S32K; j++){
-      if(addBackground == 1){
-        bgHist[spectrum[i]][j] = aFinal[0][i] + aFinal[1][i]*(double)j + aFinal[2][i]*(double)j*(double)j;
-      }else if(addBackground == 2){
-        bgHist[spectrum[i]][j] = aFinal[0][i] + aFinal[1][i]*(double)j;
-      }else if(addBackground == 3){
-        bgHist[spectrum[i]][j] = aFinal[0][i];
-      }else{
-        bgHist[spectrum[i]][j] = 0.;
+      for(m=0;m<rebinFactor;m++){
+        if(addBackground == 1){
+          bgHist[spectrum[i]][j*rebinFactor + m] = aFinal[0][i] + aFinal[1][i]*(double)j + aFinal[2][i]*(double)j*(double)j;
+        }else if(addBackground == 2){
+          bgHist[spectrum[i]][j*rebinFactor + m] = aFinal[0][i] + aFinal[1][i]*(double)j;
+        }else if(addBackground == 3){
+          bgHist[spectrum[i]][j*rebinFactor + m] = aFinal[0][i];
+        }else{
+          bgHist[spectrum[i]][j*rebinFactor + m] = 0.;
+        }
       }
     }
   }
@@ -146,28 +155,14 @@ int main(int argc, char *argv[]){
   // fit result histogram
   for(i = 0; i < numSpectra; i++){
     for(j = 0; j < S32K; j++){
+      //no need to take re-binning into account here as
+      //this was already done in the earlier steps (bgHist,scaledSimHist)
       resultsHist[spectrum[i]][j] = bgHist[spectrum[i]][j];
       for(k=0;k<numSimData;k++){
         resultsHist[spectrum[i]][j] += (float)scaledSimHist[k][spectrum[i]][j];
       }
     }
   }
-
-  //calculate chisq (using likelihood ratio method)
-  double yi,ni;
-  for(i = 0; i < numSpectra; i++){
-    for(j = startCh[i]; j <= endCh[i]; j++){
-      ni = (double)expHist[spectrum[i]][j];
-      yi = resultsHist[spectrum[i]][j];
-      // evaluate chisq given input parameters
-      if((ni > 0.)&&(yi != 0.)){
-        chisq += (yi - ni + ni * log(ni / yi));
-      }else{
-        chisq += yi; // the log(0) case
-      }
-    }
-  }
-  chisq *= 2.;
 
   // print output
   if(verbosity>0){
@@ -224,7 +219,7 @@ double lrchisq(const double *par){
   int i = 0;
   int j = 0;
 
-  for(i = startCh[spCurrent]; i <= endCh[spCurrent]; i++){
+  for(i = fitStartCh[spCurrent]; i <= fitEndCh[spCurrent]; i++){
     ni = expCurrent[i]; // events in ith bin
 
     // calculate model in the ith bin
@@ -266,12 +261,13 @@ double lrchisq(const double *par){
   return lrchisq;
 }
 
-void find_chisqMin(){
+double find_chisqMin(){
   int i = 0;
   int j = 0;
   int k = 0;
   char str[256];
   double intExp,intSim;
+  double chisq = 0.;
 
   if(verbosity>0)
     printf("Fitting data...\n");
@@ -310,7 +306,7 @@ void find_chisqMin(){
     //calculate integrals
     intSim=0.;
     intExp=0.;
-    for(j = startCh[i]; j <= endCh[i]; j++){
+    for(j = fitStartCh[i]; j <= fitEndCh[i]; j++){
       for(k=0;k<numSimData;k++){
         intSim += simCurrent[k][j];
         //printf("ch %i sim val: %f\n",j,simCurrent[k][j]);
@@ -382,7 +378,11 @@ void find_chisqMin(){
       }
     }
 
+    chisq += min->MinValue();
+
   }
+
+  return chisq;
 }
 
 void plotSpectra(){
@@ -515,10 +515,14 @@ int readMCA(FILE *inp, char *filename, float inpHist[NSPECT][S32K]){
       exit(-1);
     }
   }
-
+  
   for(int i = 0; i < NSPECT; i++){
+    int bin = -1;
     for(int j = 0; j < S32K; j++){
-      inpHist[i][j] = (float)mcaHist[i][j];
+      if(j%rebinFactor==0){
+        bin++;
+      }
+      inpHist[i][bin] += (float)mcaHist[i][j];
     }
   }
 
@@ -531,10 +535,21 @@ int readFMCA(FILE *inp, char *filename, float inpHist[NSPECT][S32K]){
     printf("Reading %i spectra in FMCA file: %s\n",endSpectrum,filename);
   }
 
+  float mcaHist[NSPECT][S32K];
   for(int i = 0; i <= endSpectrum; i++){
-    if(fread(inpHist[i], S32K * sizeof(float), 1, inp) != 1){
+    if(fread(mcaHist[i], S32K * sizeof(float), 1, inp) != 1){
       printf("ERROR: Error reading file %s!\n", filename);
       exit(-1);
+    }
+  }
+
+  for(int i = 0; i < NSPECT; i++){
+    int bin = -1;
+    for(int j = 0; j < S32K; j++){
+      if(j%rebinFactor==0){
+        bin++;
+      }
+      inpHist[i][bin] += mcaHist[i][j];
     }
   }
 
