@@ -3,7 +3,7 @@
 
 int main(int argc, char *argv[]){
 
-  int i,j,k,m;
+  int i,j,k;
   FILE *expData, *simData, *results, *scalingFactors;
 
   if(argc != 2){
@@ -29,18 +29,6 @@ int main(int argc, char *argv[]){
     for(j = 0; j < NSPECT; j++){
       aFinal[i][j] = 0.;
     }
-  }
-
-  // initialize ROOT stuff
-  char simName[132];
-  char dataName[132];
-  for(i = 0; i < NSPECT; i++){
-    sprintf(simName, "sim_%2d", i);
-    sim[i] = new TH1D(simName, ";;", S32K, 0, S32K - 1);
-  }
-  for(i = 0; i < NSPECT; i++){
-    sprintf(dataName, "data_%2d", i);
-    data[i] = new TH1D(dataName, ";;", S32K, 0, S32K - 1);
   }
 
   readConfigFile(argv[1]); // grab data from the config file
@@ -72,14 +60,6 @@ int main(int argc, char *argv[]){
     exit(-1);
   }
   fclose(expData);
-
-  for(i = 0; i < NSPECT; i++){
-    for(j = 0; j < S32K; j++){
-      for(m=0;m<rebinFactor;m++){
-        data[i]->Fill(j*rebinFactor + m, expHist[i][j]);
-      }
-    }
-  }
   
   for(i = 0; i < numSimData; i++){
     if((simData = fopen(simDataName[i], "r")) == NULL){
@@ -121,16 +101,20 @@ int main(int argc, char *argv[]){
   }
   
   // do the fit
+  //no need to take re-binning into account here as
+  //this was already done at data import
   double chisq = find_chisqMin();
 
+
+  //prepare spectra for saving to disk and/or plotting
+  //again, no need to take re-binning into account as
+  //this was already done at data import
+
   // scale simulated data
-  for(i = 0; i < numSpectra; i++){
-    for(j = 0; j < S32K; j++){
-      for(m=0;m<rebinFactor;m++){
-        for(k=0;k<numSimData;k++){
-          scaledSimHist[k][spectrum[i]][j*rebinFactor + m]=0.;
-          scaledSimHist[k][spectrum[i]][j*rebinFactor + m] += aFinal[k+3][i] * simHist[k][spectrum[i]][j];
-        }
+  for(k=0;k<numSimData;k++){
+    for(i = 0; i < numSpectra; i++){
+      for(j = 0; j < S32K; j++){
+        scaledSimHist[k][spectrum[i]][j] = aFinal[k+3][i] * simHist[k][spectrum[i]][j];
       }
     }
   }
@@ -138,16 +122,14 @@ int main(int argc, char *argv[]){
   // add background to simulated data
   for(i = 0; i < numSpectra; i++){
     for(j = 0; j < S32K; j++){
-      for(m=0;m<rebinFactor;m++){
-        if(addBackground == 1){
-          bgHist[spectrum[i]][j*rebinFactor + m] = aFinal[0][i] + aFinal[1][i]*(double)j + aFinal[2][i]*(double)j*(double)j;
-        }else if(addBackground == 2){
-          bgHist[spectrum[i]][j*rebinFactor + m] = aFinal[0][i] + aFinal[1][i]*(double)j;
-        }else if(addBackground == 3){
-          bgHist[spectrum[i]][j*rebinFactor + m] = aFinal[0][i];
-        }else{
-          bgHist[spectrum[i]][j*rebinFactor + m] = 0.;
-        }
+      if(addBackground == 1){
+        bgHist[spectrum[i]][j] = aFinal[0][i] + aFinal[1][i]*(double)j + aFinal[2][i]*(double)j*(double)j;
+      }else if(addBackground == 2){
+        bgHist[spectrum[i]][j] = aFinal[0][i] + aFinal[1][i]*(double)j;
+      }else if(addBackground == 3){
+        bgHist[spectrum[i]][j] = aFinal[0][i];
+      }else{
+        bgHist[spectrum[i]][j] = 0.;
       }
     }
   }
@@ -155,8 +137,6 @@ int main(int argc, char *argv[]){
   // fit result histogram
   for(i = 0; i < numSpectra; i++){
     for(j = 0; j < S32K; j++){
-      //no need to take re-binning into account here as
-      //this was already done in the earlier steps (bgHist,scaledSimHist)
       resultsHist[spectrum[i]][j] = bgHist[spectrum[i]][j];
       for(k=0;k<numSimData;k++){
         resultsHist[spectrum[i]][j] += (float)scaledSimHist[k][spectrum[i]][j];
@@ -203,6 +183,7 @@ int main(int argc, char *argv[]){
 
   // plot results
   if(plotMode >= 0){
+
     theApp = new TApplication("App", &argc, argv);
     plotSpectra();
   }
@@ -297,9 +278,10 @@ double find_chisqMin(){
     for(j = 0; j < S32K; j++){
       expCurrent[j] = (double)expHist[spectrum[i]][j];
     }
-    for(j = 0; j < S32K; j++){
-      for(k=0;k<numSimData;k++)
+    for(k=0;k<numSimData;k++){
+      for(j = 0; j < S32K; j++){
         simCurrent[k][j] = (double)simHist[k][spectrum[i]][j];
+      }
     }
     spCurrent = i; //needed for fit
 
@@ -388,22 +370,44 @@ double find_chisqMin(){
 void plotSpectra(){
   
   int i, j, k;
+  TH1D *data[NSPECT];
   TH1D *results[NSPECT];
   TH1D *resultsBGData[NSPECT];
   TH1D *resultsSimData[NSIMDATA][NSPECT];
   TCanvas *c = new TCanvas("c1", "", 1618, 1000);
+  gStyle->SetErrorX(0.);
+
+  //create expt data TH1
+  char dataName[132];
+  for(i = 0; i < NSPECT; i++){
+    sprintf(dataName, "data_%2d", i);
+    data[i] = new TH1D(dataName, ";;", S32K/rebinFactor, 0, S32K - 1);
+  }
+  for(i = 0; i < NSPECT; i++){
+    for(j = 0; j < S32K; j++){
+      //first argument of Fill method is the x value, in 
+      //the x-axis units, so need to rescale this as 
+      //the source histogram may have been rebinned eariler
+      data[i]->Fill(j*rebinFactor, expHist[i][j]);
+    }
+  }
+  for(i = 0; i < NSPECT; i++){
+    for(j=0;j<data[i]->GetNbinsX();j++){
+      data[i]->SetBinError(j,sqrt(data[i]->GetBinContent(j)));
+    }
+  }
 
   // initialize and fill results histo
   char resultsName[132],resultsBGName[132],resultsSimDataName[132];
   for(i = 0; i < NSPECT; i++){
     sprintf(resultsName, "results_%2d", i);
-    results[i] = new TH1D(resultsName, ";;", S32K, 0, S32K - 1);
+    results[i] = new TH1D(resultsName, ";;", S32K/rebinFactor, 0, S32K - 1);
     if(plotMode>=1){
       sprintf(resultsBGName, "resultsBG_%2d", i);
-      resultsBGData[i] = new TH1D(resultsBGName, ";;", S32K, 0, S32K - 1);
+      resultsBGData[i] = new TH1D(resultsBGName, ";;", S32K/rebinFactor, 0, S32K - 1);
       for(k=0;k<numSimData;k++){
         sprintf(resultsSimDataName, "resultsSimData_%2d_%2d", i, k);
-        resultsSimData[k][i] = new TH1D(resultsSimDataName, ";;", S32K, 0, S32K - 1);
+        resultsSimData[k][i] = new TH1D(resultsSimDataName, ";;", S32K/rebinFactor, 0, S32K - 1);
       }
     }
     
@@ -411,11 +415,11 @@ void plotSpectra(){
   // be careful with indicies here
   for(i = 0; i < numSpectra; i++){
     for(j = 0; j < S32K; j++){
-      results[spectrum[i]]->Fill(j, resultsHist[spectrum[i]][j]);
+      results[spectrum[i]]->Fill(j*rebinFactor, resultsHist[spectrum[i]][j]);
       if(plotMode>=1){
-        resultsBGData[spectrum[i]]->Fill(j, bgHist[spectrum[i]][j]);
+        resultsBGData[spectrum[i]]->Fill(j*rebinFactor, bgHist[spectrum[i]][j]);
         for(k=0;k<numSimData;k++)
-          resultsSimData[k][spectrum[i]]->Fill(j, scaledSimHist[k][spectrum[i]][j] + bgHist[spectrum[i]][j]);
+          resultsSimData[k][spectrum[i]]->Fill(j*rebinFactor, scaledSimHist[k][spectrum[i]][j] + bgHist[spectrum[i]][j]);
       }
     }
   }
@@ -445,9 +449,12 @@ void plotSpectra(){
     data[spectrum[ind]]->SetLineStyle(1);
     data[spectrum[ind]]->SetLineWidth(2);
     data[spectrum[ind]]->SetLineColor(12);
+    data[spectrum[ind]]->SetMarkerColor(12);
+    data[spectrum[ind]]->SetMarkerSize(0.8);
+    data[spectrum[ind]]->SetMarkerStyle(21);
     data[spectrum[ind]]->GetXaxis()->SetRangeUser(low[i], high[i]);
     data[spectrum[ind]]->SetStats(0);
-    data[spectrum[ind]]->Draw("HIST");
+    data[spectrum[ind]]->Draw("PE1");
 
     // simulation in red
     results[spectrum[ind]]->SetLineStyle(1);
@@ -469,9 +476,7 @@ void plotSpectra(){
         resultsBGData[spectrum[ind]]->SetLineColor(920);
         resultsBGData[spectrum[ind]]->Draw("HIST SAME");
       }
-      
     }
-    
   }
 
   c->cd(1);
@@ -482,7 +487,7 @@ void plotSpectra(){
   }else{
     leg = new TLegend(0.70, 0.85, 0.90, 0.95);
   }
-  leg->AddEntry(data[0], "Experiment", "l");
+  leg->AddEntry(data[0], "Experiment", "lp");
   leg->AddEntry(results[spectrum[0]], "Simulation", "l");
   if(plotMode>=1){
     for(k=0;k<numSimData;k++){
@@ -493,7 +498,7 @@ void plotSpectra(){
   leg->SetFillColor(0);
   leg->SetFillStyle(0);
   leg->SetBorderSize(0);
-  leg->SetTextSize(0.035);
+  leg->SetTextSize(0.045);
   leg->Draw();
 
   c->SetBorderMode(0);

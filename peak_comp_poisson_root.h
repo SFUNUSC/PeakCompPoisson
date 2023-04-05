@@ -9,6 +9,7 @@
 // ROOT libraries
 #include "TApplication.h"
 #include "TCanvas.h"
+#include "TStyle.h"
 #include "TH1.h"
 #include "TF1.h"
 #include "TLegend.h"
@@ -40,7 +41,6 @@ int verbosity; //0=only print chisq, 1=print parameters, 2=print debug info
 
 // new ROOT stuff
 TApplication *theApp;
-TH1D *data[NSPECT],*sim[NSPECT];
 double lrchisq(const double *par); // likelihood ratio chisq for spectrum sp
 double pchisq(const double *par); // pearson chisq
 double nchisq(const double *par); // neyman chisq
